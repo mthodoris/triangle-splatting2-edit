@@ -27,12 +27,12 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 # Install pytorch3d from source (pinned commit)
-RUN MAX_JOBS=4 pip install --no-cache-dir \
+RUN MAX_JOBS=4 pip install --no-cache-dir --no-build-isolation \
     "git+https://github.com/facebookresearch/pytorch3d.git@5043d15361d16a7093b4b60572c5f730c6c83308"
 
-RUN pip install --no-cache-dir -e ./submodules/diff-triangle2-rasterization
+RUN pip install --no-cache-dir --no-build-isolation -e ./submodules/diff-triangle2-rasterization
 
-RUN pip install --no-cache-dir -e ./submodules/simple-knn
+RUN pip install --no-cache-dir --no-build-isolation -e ./submodules/simple-knn
 
 RUN cmake -S . -B build \
     -DCMAKE_INSTALL_PREFIX="/app/triangle-splatting2-edit/triangulation" \
@@ -41,4 +41,4 @@ RUN cmake -S . -B build \
     && cmake --build build -j \
     && cmake --install build
 
-RUN pip install --no-cache-dir xformers==0.0.31
+RUN pip install --no-cache-dir --no-build-isolation xformers==0.0.31
