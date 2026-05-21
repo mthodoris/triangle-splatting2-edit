@@ -127,72 +127,72 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
         image_name = os.path.basename(image_path).split(".")[0]
         image = Image.open(image_path)
         ##################
-        # normal_dir = images_folder.replace("images", "normals")
-        # os.makedirs(normal_dir, exist_ok=True)
-        # normal_path = os.path.join(normal_dir, image_name + ".png")
+        normal_dir = images_folder.replace("images", "normals")
+        os.makedirs(normal_dir, exist_ok=True)
+        normal_path = os.path.join(normal_dir, image_name + ".png")
 
-        # """depth_dir = images_folder.replace("images", "mono_depth")
-        # depth_dir = re.sub(r"images(_\d+)?$", "mono_depth", images_folder)
-        # depth_path = os.path.join(depth_dir, image_name + "_aligned.npy")"""
+        """depth_dir = images_folder.replace("images", "mono_depth")
+        depth_dir = re.sub(r"images(_\d+)?$", "mono_depth", images_folder)
+        depth_path = os.path.join(depth_dir, image_name + "_aligned.npy")"""
         
-        # if os.path.exists(normal_path):
-        #     normal_image = Image.open(normal_path).convert("RGB")
-        #     normal_np = np.array(normal_image).astype(np.float32) / 255.0  # [H, W, 3] in [0, 1]
-        #     normal = (normal_np * 2.0) - 1.0
+        if os.path.exists(normal_path):
+            normal_image = Image.open(normal_path).convert("RGB")
+            normal_np = np.array(normal_image).astype(np.float32) / 255.0  # [H, W, 3] in [0, 1]
+            normal = (normal_np * 2.0) - 1.0
 
-        #     """if os.path.exists(depth_path):
-        #             # 1. Load npy file (could be [H,W] or [H,W,1])
-        #             depth_np = np.load(depth_path).astype(np.float32)
-        #             if depth_np.ndim == 2:     # [H,W] → [H,W,1]
-        #                 depth_np = depth_np[..., None]
+            """if os.path.exists(depth_path):
+                    # 1. Load npy file (could be [H,W] or [H,W,1])
+                    depth_np = np.load(depth_path).astype(np.float32)
+                    if depth_np.ndim == 2:     # [H,W] → [H,W,1]
+                        depth_np = depth_np[..., None]
 
-        #             # 2. Convert to torch tensor
-        #             depth_tensor = torch.from_numpy(depth_np)   # [H,W,1]
+                    # 2. Convert to torch tensor
+                    depth_tensor = torch.from_numpy(depth_np)   # [H,W,1]
 
-        #             # 3. Get original image size (H,W)
-        #             image_extract = image.convert("RGB")
-        #             original_size = image_extract.size[::-1]  # e.g. PIL.Image.size gives (W,H)
+                    # 3. Get original image size (H,W)
+                    image_extract = image.convert("RGB")
+                    original_size = image_extract.size[::-1]  # e.g. PIL.Image.size gives (W,H)
 
-        #             # 4. Resize to image resolution, using NEAREST for depth
-        #             depth_resized = TF.resize(
-        #                 depth_tensor.permute(2, 0, 1),              # [H,W,1] → [1,H,W]
-        #                 original_size,
-        #                 interpolation=InterpolationMode.NEAREST,   # avoid interpolation artifacts
-        #                 antialias=None,
-        #             ).permute(1, 2, 0)         
-        #     else:
-        #         print("See DN splatter to get the depth map")
-        #         exit()"""
+                    # 4. Resize to image resolution, using NEAREST for depth
+                    depth_resized = TF.resize(
+                        depth_tensor.permute(2, 0, 1),              # [H,W,1] → [1,H,W]
+                        original_size,
+                        interpolation=InterpolationMode.NEAREST,   # avoid interpolation artifacts
+                        antialias=None,
+                    ).permute(1, 2, 0)         
+            else:
+                print("See DN splatter to get the depth map")
+                exit()"""
 
-        # else:
-        #     image_extract = image.convert("RGB")
-        #     original_size = image_extract.size[::-1]  # (H, W) for torch interpolation
+        else:
+            image_extract = image.convert("RGB")
+            original_size = image_extract.size[::-1]  # (H, W) for torch interpolation
 
-        #     transform = transforms.Compose([
-        #         transforms.ToTensor(),  # [C, H, W] in [0, 1]
-        #     ])
-        #     rgb = transform(image_extract).unsqueeze(0).cuda()  # [1, 3, H, W]
+            transform = transforms.Compose([
+                transforms.ToTensor(),  # [C, H, W] in [0, 1]
+            ])
+            rgb = transform(image_extract).unsqueeze(0).cuda()  # [1, 3, H, W]
 
-        #     with torch.no_grad():
-        #         rgb_resized = resize_to_multiple(rgb, multiple=28)  # Resize to valid ViT input
-        #         pred_depth, _, output_dict = model.inference({'input': rgb_resized})
-        #         pred_normal = output_dict['prediction_normal'][:, :3, :, :]  # [1, 3, H', W']
+            with torch.no_grad():
+                rgb_resized = resize_to_multiple(rgb, multiple=28)  # Resize to valid ViT input
+                pred_depth, _, output_dict = model.inference({'input': rgb_resized})
+                pred_normal = output_dict['prediction_normal'][:, :3, :, :]  # [1, 3, H', W']
 
-        #         # Resize prediction back to original image size
-        #         pred_normal_resized = torch.nn.functional.interpolate(
-        #             pred_normal, size=original_size, mode='bilinear', align_corners=False
-        #         )
+                # Resize prediction back to original image size
+                pred_normal_resized = torch.nn.functional.interpolate(
+                    pred_normal, size=original_size, mode='bilinear', align_corners=False
+                )
 
-        #     normals = pred_normal_resized.squeeze().detach().cpu().numpy()  # [3, H, W]
-        #     normals = np.transpose(normals, (1, 2, 0))  # [H, W, 3]
-        #     normals_vis = ((normals + 1.0) / 2.0).clip(0, 1)  # [0,1]
-        #     normals_uint8 = (normals_vis * 255).astype(np.uint8)
-        #     cv2.imwrite(normal_path, cv2.cvtColor(normals_uint8, cv2.COLOR_RGB2BGR))
+            normals = pred_normal_resized.squeeze().detach().cpu().numpy()  # [3, H, W]
+            normals = np.transpose(normals, (1, 2, 0))  # [H, W, 3]
+            normals_vis = ((normals + 1.0) / 2.0).clip(0, 1)  # [0,1]
+            normals_uint8 = (normals_vis * 255).astype(np.uint8)
+            cv2.imwrite(normal_path, cv2.cvtColor(normals_uint8, cv2.COLOR_RGB2BGR))
 
-        #     # Store float version in [-1, 1]
-        #     normal = normals
+            # Store float version in [-1, 1]
+            normal = normals
         # ############
-        normal = None
+        # normal = None
         
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                               image_path=image_path, image_name=image_name, width=width, height=height, normal_map=normal, depth_map=None)
