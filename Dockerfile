@@ -17,12 +17,14 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-RUN git clone --recursive https://github.com/mthodoris/triangle-splatting2-edit.git
-WORKDIR /app/my-triangle-splatting
+RUN git clone https://github.com/mthodoris/triangle-splatting2-edit.git && \
+    cd triangle-splatting2-edit && \
+    git submodule update --init --recursive --remote
+WORKDIR /app/triangle-splatting2-edit
 
-RUN pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade pip
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 # Install pytorch3d from source (pinned commit)
 RUN MAX_JOBS=4 pip install --no-cache-dir \
@@ -33,7 +35,7 @@ RUN pip install --no-cache-dir -e ./submodules/diff-triangle2-rasterization
 RUN pip install --no-cache-dir -e ./submodules/simple-knn
 
 RUN cmake -S . -B build \
-    -DCMAKE_INSTALL_PREFIX="/app/my-triangle-splatting/triangulation" \
+    -DCMAKE_INSTALL_PREFIX="/app/triangle-splatting2-edit/triangulation" \
     -Dpybind11_DIR="$(python3 -m pybind11 --cmakedir)" \
     -DPython3_EXECUTABLE="$(which python3)" \
     && cmake --build build -j \
