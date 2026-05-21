@@ -72,7 +72,7 @@ def training(
     viewpoint_stack = scene.getTrainCameras().copy()
 
     ema_loss_for_log = 0.0
-    progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
+    progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress", dynamic_ncols=True, file=sys.stdout, disable=False)
     first_iter += 1
 
     initial_sigma = opt.set_sigma
