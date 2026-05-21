@@ -1,0 +1,15 @@
+output/
+build/
+mlflow.db
+*.ply
+*.fbx
+checkpoints/
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.git/
+*.egg-info/
+submodules/diff-triangle2-rasterization/build/
+submodules/simple-knn/build/

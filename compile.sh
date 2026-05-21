@@ -7,6 +7,6 @@ rm -rf build
 rm -rf dist
 rm -rf diff_triangle_rasterization.egg-info
 
-pip install .
+pip install -e .
 
 cd ../..
