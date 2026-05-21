@@ -42,3 +42,5 @@ RUN cmake -S . -B build \
     && cmake --install build
 
 RUN pip install --no-cache-dir --no-build-isolation xformers==0.0.31
+
+ENTRYPOINT ["bash", "-c", "git pull && exec \"$@\"", "--"]
