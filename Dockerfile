@@ -15,29 +15,28 @@ RUN apt-get update && apt-get install -y \
     libtbb-dev \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /workspace
+WORKDIR /app
 
-COPY requirements.txt .
+RUN git clone --recursive https://github.com/mthodoris/triangle-splatting2-edit.git
+WORKDIR /app/my-triangle-splatting
+
+RUN pip install --upgrade pip setuptools wheel
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install pytorch3d from source (pinned commit)
 RUN MAX_JOBS=4 pip install --no-cache-dir \
     "git+https://github.com/facebookresearch/pytorch3d.git@5043d15361d16a7093b4b60572c5f730c6c83308"
 
-COPY submodules/diff-triangle2-rasterization ./submodules/diff-triangle2-rasterization
 RUN pip install --no-cache-dir -e ./submodules/diff-triangle2-rasterization
 
-COPY submodules/simple-knn ./submodules/simple-knn
 RUN pip install --no-cache-dir -e ./submodules/simple-knn
 
-COPY . .
-
 RUN cmake -S . -B build \
-    -DCMAKE_INSTALL_PREFIX="/workspace/triangulation" \
+    -DCMAKE_INSTALL_PREFIX="/app/my-triangle-splatting/triangulation" \
     -Dpybind11_DIR="$(python3 -m pybind11 --cmakedir)" \
     -DPython3_EXECUTABLE="$(which python3)" \
     && cmake --build build -j \
     && cmake --install build
 
 RUN pip install --no-cache-dir xformers==0.0.31
-
