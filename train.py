@@ -160,7 +160,7 @@ def training(
 
         normal_error = (1 - (rend_normal * gt_normal).sum(dim=0))[None]
         normal_loss = lambda_normal * (normal_error).mean()
-        normal_loss = 0
+        # normal_loss = 0
         
         if iteration < opt.start_opacity_floor:
             loss_weight = triangles.get_vertex_weight[triangles._triangle_indices].mean() * lambda_weight
