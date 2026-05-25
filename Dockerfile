@@ -1,7 +1,7 @@
 FROM pytorch/pytorch:2.7.1-cuda12.6-cudnn9-devel
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
+ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0;12.0"
 
 RUN apt-get update && apt-get install -y \
     git \
