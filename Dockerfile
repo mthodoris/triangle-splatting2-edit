@@ -24,6 +24,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
+    python3-dev \
     python3-venv \
     python3-pip \
     git \
@@ -43,7 +44,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel packaging
 
 # =============================================================================
 # SECTION 1: Regular Python Packages
