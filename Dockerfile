@@ -12,7 +12,7 @@
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-ARG CUDA_VERSION=12.6.3
+ARG CUDA_VERSION=13.0.1
 
 # =============================================================================
 # STAGE 1: Build Python Environment
@@ -22,7 +22,8 @@ FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu24.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN rm -f /etc/apt/sources.list.d/cuda*.list /etc/apt/sources.list.d/nvidia*.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-dev \
     python3-venv \
@@ -52,9 +53,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel packaging
 
 # PyTorch 2.7.1 with CUDA 12.6 — installed before requirements.txt so
 # packages that import torch at install time (mmcv, etc.) find it
-RUN pip install --no-cache-dir \
-    torch==2.7.1 \
-    --index-url https://download.pytorch.org/whl/cu126
+RUN pip install --no-cache-dir torch==2.7.1
 
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
@@ -110,7 +109,8 @@ FROM nvidia/cuda:${CUDA_VERSION}-cudnn-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN rm -f /etc/apt/sources.list.d/cuda*.list /etc/apt/sources.list.d/nvidia*.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-venv \
     git \
