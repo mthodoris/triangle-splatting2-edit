@@ -1,13 +1,36 @@
-FROM pytorch/pytorch:2.7.1-cuda12.6-cudnn9-devel
+# =============================================================================
+# Cluster Dockerfile for triangle-splatting2-edit
+#
+# Before building, make sure submodules are initialized locally:
+#   git submodule update --init --recursive
+#
+# Build:  docker build -f Dockerfile.cluster -t triangle-splatting:latest .
+# Tag:    docker tag triangle-splatting:latest 195.251.117.42:31000/triangle-splatting:latest
+# Push:   docker push 195.251.117.42:31000/triangle-splatting:latest
+# =============================================================================
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+ARG CUDA_VERSION=12.6.3
+
+# =============================================================================
+# STAGE 1: Build Python Environment
+# NOTE: Using devel (not runtime) — nvcc is required to compile CUDA extensions
+# =============================================================================
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu24.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0+PTX"
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
+    python3-pip \
     git \
     build-essential \
     cmake \
-    libgl1-mesa-glx \
+    ninja-build \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxrender1 \
@@ -15,32 +38,111 @@ RUN apt-get update && apt-get install -y \
     libtbb-dev \
     && rm -rf /var/lib/apt/lists/*
 
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# =============================================================================
+# SECTION 1: Regular Python Packages
+# =============================================================================
+
+# PyTorch 2.7.1 with CUDA 12.6 — installed before requirements.txt so
+# packages that import torch at install time (mmcv, etc.) find it
+RUN pip install --no-cache-dir \
+    torch==2.7.1 \
+    --index-url https://download.pytorch.org/whl/cu126
+
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# =============================================================================
+# SECTION 2: Complex Packages (CUDA extensions, custom builds)
+#
+# TORCH_CUDA_ARCH_LIST uses semicolons, set INLINE (not via ENV)
+# 9.0+PTX covers Blackwell (RTX 5090 / sm_120) via JIT compilation at first run
+# =============================================================================
+
+# Copy project code (submodules must be initialized locally before building)
 WORKDIR /app
+COPY . /app
 
-RUN git clone https://github.com/mthodoris/triangle-splatting2-edit.git && \
-    cd triangle-splatting2-edit && \
-    git submodule update --init --recursive --remote
-WORKDIR /app/triangle-splatting2-edit
-
-RUN pip install --upgrade pip
-
-RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
-
-# Install pytorch3d from source (pinned commit)
-RUN MAX_JOBS=4 pip install --no-cache-dir --no-build-isolation \
+# pytorch3d — pinned commit, requires CUDA arch list
+RUN TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0+PTX" \
+    MAX_JOBS=4 pip install --no-cache-dir --no-build-isolation \
     "git+https://github.com/facebookresearch/pytorch3d.git@5043d15361d16a7093b4b60572c5f730c6c83308"
 
-RUN pip install --no-cache-dir --no-build-isolation -e ./submodules/diff-triangle2-rasterization
+# diff-triangle2-rasterization — local CUDA rasterizer submodule
+RUN TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0+PTX" \
+    pip install --no-cache-dir --no-build-isolation -e ./submodules/diff-triangle2-rasterization
 
-RUN pip install --no-cache-dir --no-build-isolation -e ./submodules/simple-knn
+# simple-knn — local submodule
+RUN TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0+PTX" \
+    pip install --no-cache-dir --no-build-isolation -e ./submodules/simple-knn
 
+# xformers — pinned version matching PyTorch 2.7.1
+RUN TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0+PTX" \
+    pip install --no-cache-dir --no-build-isolation xformers==0.0.31
+
+# triangulation — CMake/pybind11 build
 RUN cmake -S . -B build \
-    -DCMAKE_INSTALL_PREFIX="/app/triangle-splatting2-edit/triangulation" \
-    -Dpybind11_DIR="$(python3 -m pybind11 --cmakedir)" \
-    -DPython3_EXECUTABLE="$(which python3)" \
+    -DCMAKE_INSTALL_PREFIX="/app/triangulation" \
+    -Dpybind11_DIR="$(python -m pybind11 --cmakedir)" \
+    -DPython3_EXECUTABLE="$(which python)" \
     && cmake --build build -j \
     && cmake --install build
 
-RUN pip install --no-cache-dir --no-build-isolation xformers==0.0.31
+# =============================================================================
+# Verify Installation
+# =============================================================================
+RUN python -c "import torch; print(f'✓ PyTorch {torch.__version__}'); print(f'✓ CUDA {torch.version.cuda}')" || \
+    (echo "ERROR: PyTorch import failed" && exit 1)
+RUN python -c "import diff_triangle_rasterization; print('✓ diff_triangle_rasterization')"
+RUN python -c "import simple_knn; print('✓ simple-knn')"
 
-ENTRYPOINT ["bash", "-c", "git pull && exec \"$@\"", "--"]
+# =============================================================================
+# STAGE 2: Runtime Image
+# =============================================================================
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-runtime-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
+    git \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    libtbb-dev \
+    cmake \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+# Copy venv (compiled binaries) and app code from builder
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /app /app
+
+ENV PATH="/opt/venv/bin:$PATH"
+ENV VIRTUAL_ENV="/opt/venv"
+
+# NOTE: NVIDIA_VISIBLE_DEVICES is set by the Kubernetes device plugin — do not hardcode
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+ENV PYOPENGL_PLATFORM=egl
+ENV LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
+
+WORKDIR /app
+ENV PYTHONPATH="/app:${PYTHONPATH}"
+
+RUN echo "===== Docker Image Build Summary =====" && \
+    python --version && \
+    python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: {torch.version.cuda}')" && \
+    echo "======================================"
+
+CMD ["/opt/venv/bin/python", "train.py", "--help"]
