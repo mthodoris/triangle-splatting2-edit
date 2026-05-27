@@ -55,7 +55,8 @@ RUN pip install --no-cache-dir --no-build-isolation xformers==0.0.31.post1 \
 
 RUN python -c "import torch; print(torch.__version__, torch.version.cuda); print(torch.cuda.get_arch_list())"
 RUN python -c "import diff_triangle_rasterization; print('diff_triangle_rasterization ok')"
-RUN python -c "import simple_knn; print('simple_knn ok')"
+RUN python -c "import simple_knn._C; print('simple_knn ok')"
+
 
 ENTRYPOINT ["bash", "-c", "git pull && exec \"$@\"", "--"]
 CMD ["python", "train.py", "--help"]
