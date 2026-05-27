@@ -58,11 +58,13 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel packaging
 # SECTION 1: Regular Python Packages
 # =============================================================================
 
-# PyTorch 2.7.1 with CUDA 12.6 — installed before requirements.txt so
-# packages that import torch at install time find it
-RUN pip install --no-cache-dir "torch==2.7.1+cu126" --index-url https://download.pytorch.org/whl/cu126
-
+# Install requirements first (may pull in some torch version)
 RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Force-reinstall the correct torch AFTER requirements.txt so nothing overrides it
+RUN pip install --no-cache-dir --force-reinstall \
+    "torch==2.7.1+cu126" \
+    --index-url https://download.pytorch.org/whl/cu126
 
 # =============================================================================
 # SECTION 2: Complex Packages (CUDA extensions, custom builds)
