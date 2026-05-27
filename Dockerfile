@@ -91,6 +91,12 @@ RUN TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0+PTX" \
     pip install --no-cache-dir --no-build-isolation xformers==0.0.31
 
 # triangulation — CMake/pybind11 build
+# Explicitly pin CUDA_ARCHITECTURES on the triangulation target so that
+# find_package(Torch) injecting old gencode flags (e.g. sm_50) does not
+# trigger Eigen's sm_70 requirement check.
+RUN echo 'set_target_properties(triangulation PROPERTIES CUDA_ARCHITECTURES "75;80;86;89;90")' \
+    >> /app/src/CMakeLists.txt
+
 RUN cmake -S . -B build \
     -DCMAKE_INSTALL_PREFIX="/app/triangulation" \
     -Dpybind11_DIR="$(python -m pybind11 --cmakedir)" \
