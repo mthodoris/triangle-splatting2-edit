@@ -40,7 +40,11 @@ RUN MAX_JOBS=4 pip install --no-cache-dir --no-build-isolation \
 
 RUN pip install --no-cache-dir --no-build-isolation -e ./submodules/diff-triangle2-rasterization
 
-RUN pip install --no-cache-dir --no-build-isolation -e ./submodules/simple-knn
+#RUN pip install --no-cache-dir --no-build-isolation -e ./submodules/simple-knn
+ENV PYTHONPATH="/app/triangle-splatting2-edit:/app/triangle-splatting2-edit/submodules/simple-knn:${PYTHONPATH}"
+
+RUN cd ./submodules/simple-knn && \
+    pip install --no-cache-dir --no-build-isolation -e .
 
 RUN cmake -S . -B build \
     -DCMAKE_INSTALL_PREFIX="/app/triangle-splatting2-edit/triangulation" \
