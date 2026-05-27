@@ -45,7 +45,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 # Clone repo and submodules
 WORKDIR /app
 RUN git clone https://github.com/mthodoris/triangle-splatting2-edit.git . && \
-    git submodule update --init --recursive
+    git submodule update --init --recursive --remote
 
 # Create venv inside the project directory
 RUN python -m venv /app/.venv
