@@ -64,4 +64,3 @@ RUN python -c "import diff_triangle_rasterization; print('diff_triangle_rasteriz
 RUN python -c "import simple_knn._C; print('simple_knn ok')"
 
 ENTRYPOINT ["bash", "-c", "git pull && exec \"$@\"", "--"]
-CMD ["python", "train.py", "--help"]
