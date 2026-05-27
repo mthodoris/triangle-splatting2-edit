@@ -4,15 +4,15 @@
 # Before building, make sure submodules are initialized locally:
 #   git submodule update --init --recursive
 #
-# Build:  docker build -f Dockerfile.cluster -t triangle-splatting:latest .
-# Tag:    docker tag triangle-splatting:latest 195.251.117.42:31000/triangle-splatting:latest
-# Push:   docker push 195.251.117.42:31000/triangle-splatting:latest
+# Build:  docker build -t triangle-splatting-plus:latest .
+# Tag:    docker tag triangle-splatting-plus:latest 195.251.117.42:31000/triangle-splatting-plus:latest
+# Push:   docker push 195.251.117.42:31000/triangle-splatting-plus:latest
 # =============================================================================
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-ARG CUDA_VERSION=13.0.1
+ARG CUDA_VERSION=12.6.3
 
 # =============================================================================
 # STAGE 1: Build Python Environment
@@ -42,8 +42,15 @@ RUN rm -f /etc/apt/sources.list.d/cuda*.list /etc/apt/sources.list.d/nvidia*.lis
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Clone repo and submodules
+WORKDIR /app
+RUN git clone https://github.com/mthodoris/triangle-splatting2-edit.git . && \
+    git submodule update --init --recursive
+
+# Create venv inside the project directory
+RUN python -m venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV VIRTUAL_ENV="/app/.venv"
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel packaging
 
@@ -52,11 +59,10 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel packaging
 # =============================================================================
 
 # PyTorch 2.7.1 with CUDA 12.6 — installed before requirements.txt so
-# packages that import torch at install time (mmcv, etc.) find it
-RUN pip install --no-cache-dir torch==2.7.1
+# packages that import torch at install time find it
+RUN pip install --no-cache-dir "torch==2.7.1+cu126" --index-url https://download.pytorch.org/whl/cu126
 
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # =============================================================================
 # SECTION 2: Complex Packages (CUDA extensions, custom builds)
@@ -64,10 +70,6 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # TORCH_CUDA_ARCH_LIST uses semicolons, set INLINE (not via ENV)
 # 9.0+PTX covers Blackwell (RTX 5090 / sm_120) via JIT compilation at first run
 # =============================================================================
-
-# Copy project code (submodules must be initialized locally before building)
-WORKDIR /app
-COPY . /app
 
 # pytorch3d — pinned commit, requires CUDA arch list
 RUN TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0+PTX" \
@@ -126,19 +128,18 @@ RUN rm -f /etc/apt/sources.list.d/cuda*.list /etc/apt/sources.list.d/nvidia*.lis
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
-# Copy venv (compiled binaries) and app code from builder
-COPY --from=builder /opt/venv /opt/venv
+# Copy entire app (includes .venv) from builder
+WORKDIR /app
 COPY --from=builder /app /app
 
-ENV PATH="/opt/venv/bin:$PATH"
-ENV VIRTUAL_ENV="/opt/venv"
+ENV PATH="/app/.venv/bin:$PATH"
+ENV VIRTUAL_ENV="/app/.venv"
 
 # NOTE: NVIDIA_VISIBLE_DEVICES is set by the Kubernetes device plugin — do not hardcode
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
 ENV PYOPENGL_PLATFORM=egl
 ENV LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
 
-WORKDIR /app
 ENV PYTHONPATH="/app:${PYTHONPATH}"
 
 RUN echo "===== Docker Image Build Summary =====" && \
@@ -146,4 +147,4 @@ RUN echo "===== Docker Image Build Summary =====" && \
     python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: {torch.version.cuda}')" && \
     echo "======================================"
 
-CMD ["/opt/venv/bin/python", "train.py", "--help"]
+CMD ["/app/.venv/bin/python", "train.py", "--help"]
