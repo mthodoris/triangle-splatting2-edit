@@ -89,7 +89,7 @@ def resize_to_multiple(tensor, multiple=28):
     new_W = (W // multiple) * multiple
     return torch.nn.functional.interpolate(tensor, size=(new_H, new_W), mode='bilinear', align_corners=False)
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
+def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, output_path):
     # Model to extract normal map
     # model = torch.hub.load('yvanyin/metric3d', 'metric3d_vit_large', pretrain=True)
     model = torch.hub.load('yvanyin/metric3d', 'metric3d_vit_small', pretrain=True)
@@ -127,7 +127,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
         image_name = os.path.basename(image_path).split(".")[0]
         image = Image.open(image_path)
         ##################
-        normal_dir = images_folder.replace("images", "normals")
+        normal_dir = os.path.join(output_path, "normals")
         os.makedirs(normal_dir, exist_ok=True)
         normal_path = os.path.join(normal_dir, image_name + ".png")
 
@@ -228,7 +228,7 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, llffhold=8):
+def readColmapSceneInfo(path, images, eval, output_path, llffhold=8):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -241,7 +241,7 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
     reading_dir = "images" if images == None else images
-    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir))
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir), output_path=output_path)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:
