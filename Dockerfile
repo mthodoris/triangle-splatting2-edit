@@ -63,7 +63,7 @@ RUN python -c "import torch; print(torch.__version__, torch.version.cuda); print
 RUN python -c "import diff_triangle_rasterization; print('diff_triangle_rasterization ok')"
 RUN python -c "import simple_knn._C; print('simple_knn ok')"
 
-# ENTRYPOINT ["bash", "-c", "git pull && exec \"$@\"", "--"]
+ENTRYPOINT ["bash", "-c", "git pull && exec \"$@\"", "--"]
 WORKDIR /app/triangle-splatting2-edit
 
 CMD ["/bin/bash"]
