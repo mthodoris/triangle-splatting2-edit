@@ -253,16 +253,23 @@ def readColmapSceneInfo(path, images, eval, output_path, llffhold=8):
 
     nerf_normalization = getNerfppNorm(train_cam_infos)
 
-    ply_path = os.path.join(path, "sparse/0/points3D.ply")
+    src_ply_path = os.path.join(path, "sparse/0/points3D.ply")
     bin_path = os.path.join(path, "sparse/0/points3D.bin")
     txt_path = os.path.join(path, "sparse/0/points3D.txt")
+    ply_path = os.path.join(output_path, "points3D.ply")
     if not os.path.exists(ply_path):
-        print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
-        try:
-            xyz, rgb, _ = read_points3D_binary(bin_path)
-        except:
-            xyz, rgb, _ = read_points3D_text(txt_path)
-        storePly(ply_path, xyz, rgb)
+        if os.path.exists(src_ply_path):
+            import shutil
+            os.makedirs(output_path, exist_ok=True)
+            shutil.copy2(src_ply_path, ply_path)
+        else:
+            print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
+            try:
+                xyz, rgb, _ = read_points3D_binary(bin_path)
+            except:
+                xyz, rgb, _ = read_points3D_text(txt_path)
+            os.makedirs(output_path, exist_ok=True)
+            storePly(ply_path, xyz, rgb)
     try:
         pcd = fetchPly(ply_path)
     except:
