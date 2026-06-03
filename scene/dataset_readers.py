@@ -260,7 +260,7 @@ def readColmapSceneInfo(path, images, eval, output_path, normals_path="", llffho
         if os.path.exists(src_ply_path):
             import shutil
             os.makedirs(output_path, exist_ok=True)
-            shutil.copy2(src_ply_path, ply_path)
+            shutil.copy(src_ply_path, ply_path)
         else:
             print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
             try:
