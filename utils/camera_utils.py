@@ -11,6 +11,8 @@
 
 from scene.cameras import Camera
 import numpy as np
+from PIL import Image
+from pathlib import Path
 from utils.general_utils import PILtoTorch
 from utils.graphics_utils import fov2focal
 import torch
@@ -80,11 +82,7 @@ def loadCam(args, id, cam_info, resolution_scale):
         loaded_mask = None
         gt_image = resized_image_rgb
 
-    normal_map = getattr(cam_info, 'normal_map', None)
-    if normal_map is not None:
-        normal_map = torch.from_numpy(normal_map).permute(2, 0, 1).float()  # [3, H, W]
-    else:
-        normal_map = None
+    normal_map = getattr(cam_info, 'normal_map', None)  # kept as path; loaded per-iteration in train.py
 
     depth_map = getattr(cam_info, 'depth_map', None)
     depth_map = to_depth_tensor(depth_map)

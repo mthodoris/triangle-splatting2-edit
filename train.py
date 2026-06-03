@@ -20,6 +20,9 @@
 
 import os
 import torch
+import numpy as np
+from PIL import Image as PILImage
+from pathlib import Path
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 from triangle_renderer import render
@@ -137,7 +140,11 @@ def training(
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
-        gt_normal = viewpoint_cam.normal_map.cuda()
+        normal_src = viewpoint_cam.normal_map
+        if isinstance(normal_src, (str, Path)):
+            normal_np = np.array(PILImage.open(normal_src).convert("RGB")).astype(np.float32) / 255.0
+            normal_src = torch.from_numpy((normal_np * 2.0) - 1.0).permute(2, 0, 1).float()
+        gt_normal = normal_src.cuda()
         seg_hr = gt_normal.unsqueeze(0)  # -> [1, 3, H, W]
         seg_ds_area = F.interpolate(seg_hr, size=(gt_image.shape[1], gt_image.shape[2]), mode="area")  # [1, 3, H0, W0]
         gt_normal = seg_ds_area.squeeze(0)  # -> [3, H0, W0]

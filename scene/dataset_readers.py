@@ -89,11 +89,8 @@ def resize_to_multiple(tensor, multiple=28):
     new_W = (W // multiple) * multiple
     return torch.nn.functional.interpolate(tensor, size=(new_H, new_W), mode='bilinear', align_corners=False)
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, output_path):
-    # Model to extract normal map
-    # model = torch.hub.load('yvanyin/metric3d', 'metric3d_vit_large', pretrain=True)
-    model = torch.hub.load('yvanyin/metric3d', 'metric3d_vit_small', pretrain=True)
-    model.eval().cuda()
+def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, output_path, normals_path=""):
+    model = None  # only loaded if a normal is missing
 
     cam_infos = []
     for idx, key in enumerate(cam_extrinsics):
@@ -127,7 +124,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, output_path
         image_name = os.path.basename(image_path).split(".")[0]
         image = Image.open(image_path)
         ##################
-        normal_dir = os.path.join(output_path, "normals")
+        normal_dir = normals_path if normals_path else os.path.join(output_path, "normals")
         os.makedirs(normal_dir, exist_ok=True)
         normal_path = os.path.join(normal_dir, image_name + ".png")
 
@@ -136,9 +133,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, output_path
         depth_path = os.path.join(depth_dir, image_name + "_aligned.npy")"""
         
         if os.path.exists(normal_path):
-            normal_image = Image.open(normal_path).convert("RGB")
-            normal_np = np.array(normal_image).astype(np.float32) / 255.0  # [H, W, 3] in [0, 1]
-            normal = (normal_np * 2.0) - 1.0
+            normal = normal_path  # load on demand in loadCam to avoid holding all maps in RAM
 
             """if os.path.exists(depth_path):
                     # 1. Load npy file (could be [H,W] or [H,W,1])
@@ -165,6 +160,10 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, output_path
                 exit()"""
 
         else:
+            if model is None:
+                model = torch.hub.load('yvanyin/metric3d', 'metric3d_vit_small', pretrain=True)
+                model.eval().cuda()
+
             image_extract = image.convert("RGB")
             original_size = image_extract.size[::-1]  # (H, W) for torch interpolation
 
@@ -189,17 +188,17 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, output_path
             normals_uint8 = (normals_vis * 255).astype(np.uint8)
             cv2.imwrite(normal_path, cv2.cvtColor(normals_uint8, cv2.COLOR_RGB2BGR))
 
-            # Store float version in [-1, 1]
-            normal = normals
+            normal = normal_path  # load on demand in train.py to avoid holding all maps in RAM
         # ############
         # normal = None
         
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                               image_path=image_path, image_name=image_name, width=width, height=height, normal_map=normal, depth_map=None)
         cam_infos.append(cam_info)
-    del model
-    torch.cuda.empty_cache()
-    torch.cuda.ipc_collect()
+    if model is not None:
+        del model
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
     sys.stdout.write('\n')
     return cam_infos
 
@@ -228,7 +227,7 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, output_path, llffhold=8):
+def readColmapSceneInfo(path, images, eval, output_path, normals_path="", llffhold=8):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -241,7 +240,7 @@ def readColmapSceneInfo(path, images, eval, output_path, llffhold=8):
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
     reading_dir = "images" if images == None else images
-    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir), output_path=output_path)
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir), output_path=output_path, normals_path=normals_path)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:
