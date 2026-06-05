@@ -193,9 +193,12 @@ def training(
                 progress_bar.close()
 
             # Log and save
-            
+
             training_report(tb_writer, iteration, pixel_loss, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
-            
+
+            if iteration % 1000 == 0:
+                scene.save_mesh_ply(iteration)
+
             # Handle pruning operations
             if iteration % 500 == 0:
 
