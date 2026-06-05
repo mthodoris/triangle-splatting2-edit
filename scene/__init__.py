@@ -93,6 +93,7 @@ class Scene:
                                     )
         else:
             self.triangles.create_from_pcd(scene_info.point_cloud, init_opacity, set_sigma)
+            self.triangles.save_mesh_ply(os.path.join(self.model_path, "point_cloud/iteration_0"))
 
     def save(self, iteration):
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
@@ -102,6 +103,10 @@ class Scene:
 
     def save_mesh(self, iteration):
         self.triangles.extract_mesh(self.model_path, iteration)
+
+    def save_mesh_ply(self, iteration):
+        path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
+        self.triangles.save_mesh_ply(path)
 
     def getTrainCameras(self, scale=1.0):
         return self.train_cameras[scale]

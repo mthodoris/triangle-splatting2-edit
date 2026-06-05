@@ -20,6 +20,7 @@
 
 import torch
 import numpy as np
+from plyfile import PlyData, PlyElement
 from utils.general_utils import inverse_sigmoid, get_expon_lr_func
 from torch import nn
 import os
@@ -74,6 +75,23 @@ class TriangleModel:
         self.scaling = 1
 
         self.setup_functions()
+
+    def save_mesh_ply(self, path):
+        mkdir_p(path)
+        verts = self.vertices.detach().cpu().numpy()       # [V, 3]
+        faces = self._triangle_indices.detach().cpu().numpy().astype(np.int32)  # [T, 3]
+
+        vertex_el = PlyElement.describe(
+            np.array([tuple(v) for v in verts],
+                     dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')]),
+            'vertex'
+        )
+        face_el = PlyElement.describe(
+            np.array([(f,) for f in faces],
+                     dtype=[('vertex_indices', 'i4', (3,))]),
+            'face'
+        )
+        PlyData([vertex_el, face_el]).write(os.path.join(path, 'mesh.ply'))
 
     def save_parameters(self, path):
 
