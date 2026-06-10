@@ -31,7 +31,7 @@ class Scene:
 
     triangles : TriangleModel
 
-    def __init__(self, args : ModelParams, triangles : TriangleModel, init_opacity, set_sigma, load_iteration=None, shuffle=True, resolution_scales=[1.0], segment=False, ratio_threshold=0.75):
+    def __init__(self, args : ModelParams, triangles : TriangleModel, init_opacity, set_sigma, load_iteration=None, shuffle=True, resolution_scales=[1.0], segment=False, ratio_threshold=0.75, init_mesh_path=None):
         """b
         :param path: Path to colmap scene main folder.
         """
@@ -92,7 +92,11 @@ class Scene:
                                                 ), segment=segment, ratio_threshold=ratio_threshold
                                     )
         else:
-            self.triangles.create_from_pcd(scene_info.point_cloud, init_opacity, set_sigma)
+            if init_mesh_path is not None:
+                print(f"Loading initial mesh from {init_mesh_path}")
+                self.triangles.create_from_mesh(init_mesh_path, init_opacity, set_sigma)
+            else:
+                self.triangles.create_from_pcd(scene_info.point_cloud, init_opacity, set_sigma)
             self.triangles.save_mesh_ply(os.path.join(self.model_path, "point_cloud/iteration_0"))
 
     def save(self, iteration):

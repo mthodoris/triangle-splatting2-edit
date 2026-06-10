@@ -44,20 +44,21 @@ import torch.nn.functional as F
 
 
 def training(
-        dataset,   
-        opt, 
+        dataset,
+        opt,
         pipe,
         testing_iterations,
-        checkpoint, 
+        checkpoint,
         debug_from,
+        init_mesh_path=None,
         ):
-    
+
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
 
     # Load parameters, triangles and scene
     triangles = TriangleModel(dataset.sh_degree)
-    scene = Scene(dataset, triangles, opt.set_weight, opt.set_sigma)
+    scene = Scene(dataset, triangles, opt.set_weight, opt.set_sigma, init_mesh_path=init_mesh_path)
     triangles.training_setup(opt, opt.feature_lr, opt.weight_lr, opt.lr_triangles_points_init)
     triangles.add_percentage = opt.add_percentage
 
@@ -389,7 +390,8 @@ if __name__ == "__main__":
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
-    parser.add_argument("--start_checkpoint", type=str, default = None)
+    parser.add_argument("--start_checkpoint", type=str, default=None)
+    parser.add_argument("--init_mesh", type=str, default=None, help="Path to a .ply or .obj file to use as the initial mesh instead of Delaunay triangulation")
     parser.add_argument("--indoor", action="store_true", default=False)
 
     args = parser.parse_args(sys.argv[1:])
@@ -417,6 +419,7 @@ if __name__ == "__main__":
              args.test_iterations,
              args.start_checkpoint,
              args.debug_from,
+             init_mesh_path=args.init_mesh,
              )
     
     # All done

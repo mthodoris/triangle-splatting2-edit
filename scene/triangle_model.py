@@ -294,6 +294,63 @@ class TriangleModel:
         self.importance_score = torch.zeros((self._triangle_indices.shape[0]), dtype=torch.float, device="cuda")
         
 
+    def create_from_mesh(self, mesh_path: str, opacity: float, set_sigma: float):
+        ext = os.path.splitext(mesh_path)[1].lower()
+
+        if ext == '.ply':
+            plydata = PlyData.read(mesh_path)
+            verts = plydata['vertex']
+            vertices = np.stack([verts['x'], verts['y'], verts['z']], axis=1).astype(np.float32)
+            face_data = plydata['face']['vertex_indices']
+            faces = []
+            for f in face_data:
+                if len(f) == 3:
+                    faces.append(f)
+                elif len(f) == 4:
+                    faces.append([f[0], f[1], f[2]])
+                    faces.append([f[0], f[2], f[3]])
+            faces = np.array(faces, dtype=np.int32)
+        elif ext == '.obj':
+            vertices, faces = [], []
+            with open(mesh_path, encoding='latin-1') as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if not parts:
+                        continue
+                    if parts[0] == 'v':
+                        vertices.append([float(x) for x in parts[1:4]])
+                    elif parts[0] == 'f':
+                        indices = [int(p.split('/')[0]) - 1 for p in parts[1:]]
+                        if len(indices) == 3:
+                            faces.append(indices)
+                        elif len(indices) == 4:
+                            faces.append([indices[0], indices[1], indices[2]])
+                            faces.append([indices[0], indices[2], indices[3]])
+            vertices = np.array(vertices, dtype=np.float32)
+            faces    = np.array(faces,    dtype=np.int32)
+        else:
+            raise ValueError(f"Unsupported mesh format: {ext}. Use .ply or .obj")
+
+        _points = torch.tensor(vertices, dtype=torch.float32).cuda()
+        _faces  = torch.tensor(faces,    dtype=torch.int32).cuda()
+
+        V = _points.shape[0]
+        features = torch.zeros((V, 3, (self.max_sh_degree + 1) ** 2), dtype=torch.float32, device="cuda")
+
+        self.vertices          = nn.Parameter(_points.requires_grad_(True))
+        self._triangle_indices = _faces
+        self.vertex_weight     = nn.Parameter(
+            inverse_sigmoid(opacity * torch.ones((V, 1), dtype=torch.float32, device="cuda")).requires_grad_(True)
+        )
+        self._sigma = self.inverse_exponential_activation(set_sigma)
+
+        self._features_dc   = nn.Parameter(features[:, :3, 0:1].transpose(1, 2).contiguous().requires_grad_(True))
+        self._features_rest = nn.Parameter(features[:, :3, 1:].transpose(1, 2).contiguous().requires_grad_(True))
+
+        T = _faces.shape[0]
+        self.image_size      = torch.zeros(T, dtype=torch.float32, device="cuda")
+        self.importance_score = torch.zeros(T, dtype=torch.float32, device="cuda")
+
     def training_setup(self, training_args, lr_mask, lr_features, weight_lr, lr_sigma, lr_triangles_init):
 
         l = [
